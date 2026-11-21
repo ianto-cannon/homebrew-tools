@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# makeSiteMap [-e EXT] BASE-URL [DIRECTORY] — write a sitemap.xml for a
+# make-sitemap [-e EXT] BASE-URL [DIRECTORY] — write a sitemap.xml for a
 # static site. Scans DIRECTORY (default: the current one) recursively for
 # the given file types, skipping hidden files. index.html maps to its
 # directory's URL; <lastmod> is each file's last git commit date (mtime
@@ -12,9 +12,9 @@
 #             slashes are stripped.
 #
 # Examples:
-#   makeSiteMap ianto-cannon.github.io
-#   makeSiteMap -e html,htm ianto-cannon.github.io
-#   makeSiteMap -e pdf https://ianto-cannon.github.io/docs docs
+#   make-sitemap example.com
+#   make-sitemap -e html,htm example.com
+#   make-sitemap -e pdf https://example.com/docs docs
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ while getopts ":e:h" opt; do
     case $opt in
         e) TYPES=${OPTARG//,/ } ;;
         h) usage ;;
-        :) printf 'makeSiteMap: -%s needs an argument\n' "$OPTARG" >&2; exit 1 ;;
+        :) printf 'make-sitemap: -%s needs an argument\n' "$OPTARG" >&2; exit 1 ;;
         *) usage ;;
     esac
 done
@@ -34,7 +34,7 @@ shift $((OPTIND - 1))
 BASE=$1
 DIR=${2:-.}
 
-[ -d "$DIR" ] || { printf 'makeSiteMap: not a directory: %s\n' "$DIR" >&2; exit 1; }
+[ -d "$DIR" ] || { printf 'make-sitemap: not a directory: %s\n' "$DIR" >&2; exit 1; }
 case $BASE in *://*) ;; *) BASE="https://$BASE" ;; esac
 BASE=${BASE%/}
 
@@ -72,7 +72,7 @@ url_path() {
 
 name_tests=()
 for t in $TYPES; do name_tests+=( -o -name "*.$t" ); done
-[ ${#name_tests[@]} -gt 0 ] || { printf 'makeSiteMap: empty -e list\n' >&2; exit 1; }
+[ ${#name_tests[@]} -gt 0 ] || { printf 'make-sitemap: empty -e list\n' >&2; exit 1; }
 
 cd "$DIR"
 OUT=$PWD/sitemap.xml
@@ -102,4 +102,4 @@ trap 'rm -f "$TMP"' EXIT
 
 mv "$TMP" "$OUT"
 trap - EXIT
-printf 'makeSiteMap: wrote %s (%s pages)\n' "$OUT" "$(grep -c '<loc>' "$OUT")"
+printf 'make-sitemap: wrote %s (%s pages)\n' "$OUT" "$(grep -c '<loc>' "$OUT")"
