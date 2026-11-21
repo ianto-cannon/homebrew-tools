@@ -57,7 +57,3 @@ brew uninstall trash
 ```
 
 Replace `trash` with the utility you want to uninstall.
-
-## License
-
-MIT
