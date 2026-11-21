@@ -1,0 +1,11 @@
+#!/bin/bash
+for f in "$@"; do
+    f=$(realpath "$f") || continue
+    osascript - "$f" <<'EOF'
+on run argv
+    tell application "Finder"
+        delete POSIX file (item 1 of argv)
+    end tell
+end run
+EOF
+done
