@@ -1,14 +1,14 @@
 # Homebrew Tools
 
-```
-     (___)
-     (ovo)
-     /vvv\
-     |vvv|
-======w=w===
+```text
+    (___)
+    (ovo)
+    /vvv\
+    |vvv|
+====w=w===
 ```
 
-My command-line utilities for macOS.
+A collection of small command-line utilities for macOS, distributed through a custom Homebrew tap.
 
 ## Installation
 
@@ -27,9 +27,10 @@ brew install make-sitemap
 brew install coffee
 brew install cake
 brew install owl
+brew install update-formulae
 ```
 
-You can also install a utility directly without adding the tap first:
+Alternatively, install a utility directly:
 
 ```sh
 brew install ianto-cannon/tools/trash
@@ -51,7 +52,7 @@ Accepts multiple file and directory arguments.
 
 ### `clean-clipboard`
 
-Mask potentially sensitive information in the macOS clipboard. This command can be run before pasting email threads into LLMs.
+Mask potentially sensitive information in the macOS clipboard. Useful before pasting email threads or other text into LLMs.
 
 ```sh
 clean-clipboard
@@ -145,23 +146,74 @@ Print an owl in ASCII art.
 owl
 ```
 
-## Requirements
+### `update-formulae`
 
-- macOS
-- Homebrew
-- Bash and standard command-line utilities
-- Git is optional; `make-sitemap` uses it to determine file modification dates when available.
+Update the Homebrew formulae when utility scripts change.
 
-## Updating
+Run from the root of a local clone of this repository:
 
-Update Homebrew's package information and upgrade installed utilities:
+```sh
+update-formulae YOUR-GITHUB-USERNAME-HERE
+```
+
+The argument is the GitHub username or organisation owning the repository.
+
+**What it does:**
+
+- Checks the SHA256 checksum of every file in `bin/`.
+- Increments a utility's patch version only when its executable changes.
+- Creates a formula if a utility in `bin/` does not yet have one.
+- Updates the download URL and checksum for changed utilities.
+- Uses a shared global Git tag, starting at `global1`.
+- Increments the global tag once whenever any utility changes.
+- Leaves unchanged formula versions, checksums and URLs untouched.
+
+For example, if `trash` and `owl` change, their formulae are updated to reference `global2`. Other utilities can continue referencing `global1`.
+
+**After running the script:**
+
+Review the changes:
+
+```sh
+git diff
+```
+
+Commit:
+
+```sh
+git add bin/ Formula/
+git commit -m "Update utilities"
+```
+
+Create the global tag printed by the script, for example:
+
+```sh
+git tag global2
+```
+
+Push the commit and tag:
+
+```sh
+git push origin main --tags
+```
+
+The script prints these instructions but does not execute the commit, tag creation or push automatically.
+
+## Updating installed utilities
+
+Update Homebrew's package information:
 
 ```sh
 brew update
+```
+
+Upgrade all installed utilities:
+
+```sh
 brew upgrade
 ```
 
-To upgrade a specific utility:
+Upgrade one utility:
 
 ```sh
 brew upgrade trash
@@ -180,3 +232,11 @@ Remove the tap when you no longer need it:
 ```sh
 brew untap ianto-cannon/tools
 ```
+
+## Requirements
+
+- macOS
+- Homebrew
+- Bash and standard command-line utilities
+- Git (required by `update-formulae`; optional for `make-sitemap`)
+- `shasum` (used by `update-formulae`)
