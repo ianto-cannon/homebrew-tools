@@ -1,0 +1,146 @@
+#!/bin/bash
+set -euo pipefail
+
+OWNER="${1:?Usage: ./update-formulae GITHUB_USERNAME}"
+REPO="homebrew-tools"
+BASE="https://raw.githubusercontent.com/$OWNER/$REPO"
+
+# Find the latest global tag.
+latest=0
+while read -r tag; do
+    if [[ "$tag" =~ ^global([0-9]+)$ ]] &&
+       (( 10#${BASH_REMATCH[1]} > latest )); then
+        latest=$((10#${BASH_REMATCH[1]}))
+    fi
+done < <(git tag -l 'global[0-9]*')
+
+initial=0
+if (( latest == 0 )); then
+    initial=1
+    latest=1
+fi
+
+# Find changed and new utilities.
+changed=()
+names=()
+
+for script in bin/*; do
+    [[ -f "$script" ]] || continue
+
+    name=${script##*/}
+    formula="Formula/$name.rb"
+    names+=("$name")
+
+    new_sha=$(shasum -a 256 "$script" | awk '{print $1}')
+
+    if [[ ! -f "$formula" ]]; then
+        changed+=("$name")
+        echo "$name: new formula"
+    else
+        old_sha=$(sed -n 's/^[[:space:]]*sha256 "\([^"]*\)".*/\1/p' "$formula")
+
+        if [[ "$old_sha" != "$new_sha" ]]; then
+            changed+=("$name")
+            echo "$name: executable changed"
+        fi
+    fi
+done
+
+# Determine the global tag for this batch.
+if (( initial )); then
+    tag="global1"
+    create_tag=1
+elif ((${#changed[@]})); then
+    latest=$((latest + 1))
+    tag="global$latest"
+    create_tag=1
+else
+    tag="global$latest"
+    create_tag=0
+fi
+
+echo
+echo "Global tag: $tag"
+
+# Update or create formulae.
+for name in "${names[@]}"; do
+    script="bin/$name"
+    formula="Formula/$name.rb"
+    sha=$(shasum -a 256 "$script" | awk '{print $1}')
+
+    is_changed=0
+    for item in "${changed[@]}"; do
+        [[ "$item" == "$name" ]] && is_changed=1
+    done
+
+    if [[ ! -f "$formula" ]]; then
+        class=$(echo "$name" | awk -F '[-_]' '{
+            for (i=1; i<=NF; i++)
+                printf "%s", toupper(substr($i,1,1)) substr($i,2)
+        }')
+
+        mkdir -p Formula
+
+        cat > "$formula" <<EOF
+class $class < Formula
+  desc "Command-line utility: $name"
+  homepage "https://github.com/$OWNER/$REPO"
+  url "$BASE/$tag/bin/$name"
+  version "1.0.0"
+  sha256 "$sha"
+
+  def install
+    bin.install "$name"
+  end
+end
+EOF
+        echo "Created $formula"
+        continue
+    fi
+
+    version=$(sed -n 's/^[[:space:]]*version "\([^"]*\)".*/\1/p' "$formula")
+
+    if (( is_changed )); then
+        if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((10#${BASH_REMATCH[3]} + 1))"
+        else
+            echo "Invalid version in $formula: $version" >&2
+            exit 1
+        fi
+    fi
+
+    if (( is_changed || initial )); then
+        sed -i '' \
+            -e "s|^[[:space:]]*url \".*\"|  url \"$BASE/$tag/bin/$name\"|" \
+            -e "s|^[[:space:]]*version \".*\"|  version \"$version\"|" \
+            -e "s|^[[:space:]]*sha256 \".*\"|  sha256 \"$sha\"|" \
+            "$formula"
+
+        echo "$name: version $version, URL updated"
+    else
+        echo "$name: unchanged"
+    fi
+
+    # Keep the repository homepage consistent with the supplied username.
+    sed -i '' \
+        -e "s|^[[:space:]]*homepage \".*\"|  homepage \"https://github.com/$OWNER/$REPO\"|" \
+        "$formula"
+done
+
+echo
+if (( create_tag )); then
+    echo "Review:"
+    echo "  git diff"
+    echo
+    echo "Commit:"
+    echo "  git add bin/ Formula/"
+    echo '  git commit -m "Update utilities"'
+    echo
+    echo "Create global tag:"
+    echo "  git tag $tag"
+    echo
+    echo "Push commit and tag:"
+    echo "  git push origin main --tags"
+else
+    echo "No executable changes detected. No new tag required."
+fi
